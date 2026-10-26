@@ -1,0 +1,15 @@
+{
+  "manifest_version": 2,
+  "name": "Word Focus for Zotero",
+  "version": "0.4.1",
+  "description": "Follow spoken words, click to read, and save the current sentence as a Zotero annotation in your chosen colour.",
+  "author": "Word Focus contributors",
+  "applications": {
+    "zotero": {
+      "id": "word-focus@local.invalid",
+      "strict_min_version": "10.0.6",
+      "strict_max_version": "10.0.*",
+      "update_url": "https://word-focus.invalid/updates.json"
+    }
+  }
+}

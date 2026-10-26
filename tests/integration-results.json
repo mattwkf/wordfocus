@@ -1,0 +1,667 @@
+[
+  {
+    "name": "harness started",
+    "data": {
+      "version": "10.0.6"
+    }
+  },
+  {
+    "name": "Zotero ready",
+    "data": {}
+  },
+  {
+    "name": "XPI installed and active",
+    "data": {
+      "pass": true,
+      "addonVersion": "0.4.0"
+    }
+  },
+  {
+    "name": "test PDF imported",
+    "data": {
+      "id": 36
+    }
+  },
+  {
+    "name": "plugin attached to actual PDF reader",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "toolbar button present",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "existing 0.4.0 plugin upgrades in the open reader",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "legacy word settings survive upgrade and sentence starts enabled",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "Add annotation sits directly to the right of Wf",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "annotation action has moved out of the floating display and settings",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "native keyboard transaction available",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "opacity responds to a real mouse click",
+    "data": {
+      "pass": true,
+      "before": "48",
+      "after": "12"
+    }
+  },
+  {
+    "name": "opacity responds to an arrow key",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "opacity accepts typed values and saves them",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "outline responds to a real mouse click",
+    "data": {
+      "pass": true,
+      "before": "3",
+      "after": "1"
+    }
+  },
+  {
+    "name": "outline responds to an arrow key",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "outline accepts typed values and saves them",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "sentenceOpacity responds to a real mouse click",
+    "data": {
+      "pass": true,
+      "before": "20",
+      "after": "12"
+    }
+  },
+  {
+    "name": "sentenceOpacity responds to an arrow key",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "sentenceOpacity accepts typed values and saves them",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "sentenceOutline responds to a real mouse click",
+    "data": {
+      "pass": true,
+      "before": "0",
+      "after": "1"
+    }
+  },
+  {
+    "name": "sentenceOutline responds to an arrow key",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "sentenceOutline accepts typed values and saves them",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "slider drag remains responsive during settings synchronisation",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "out-of-range typed opacity clamps on Enter",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "Escape closes isolated settings panel",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "hover before playback highlights word and sentence silently",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "hover changes cursor to a pointing hand",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "hover tracks the next exact word",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "moving off text removes the temporary highlight and cursor",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "real PDF text and word map available",
+    "data": {
+      "pass": true,
+      "segments": [
+        "Clear word highlights follow the spoken text.",
+        "The second sentence checks repeated words and pauses."
+      ]
+    }
+  },
+  {
+    "name": "local word event mapped to PDF",
+    "data": {
+      "pass": true,
+      "position": {
+        "pageIndex": 0,
+        "rects": [
+          [
+            72,
+            746.6,
+            108.39999999999999,
+            764.5
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "name": "visible word overlay drawn",
+    "data": {
+      "pass": true,
+      "html": "<style>:host{pointer-events:none!important} .word,.sentence{position:absolute;box-sizing:border-box;border-radius:3px;pointer-events:none} @media print{:host{display:none!important}}</style><div><div class=\"sentence\" style=\"left: 133.042px; top: 123.178px; width: 500.507px; height: 30.4907px; background: rgba(102, 183, 255, 0.23); border: 0px solid rgb(102, 183, 255);\"></div><div class=\"word\" style=\"left: 133.042px; top: 123.178px; width: 61.9073px; height: 30.4907px; background: rgba(171, 18, 153, 0.65); border: 1px solid rgb(22, 22, 22); box-shadow: rgb(171, 18, 153) 0px 0px 0px 2px, rgb(255, 255, 255) 0px 0px 0px 3px;\"></div></div>"
+    }
+  },
+  {
+    "name": "sentence and word highlights coexist",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "native fill suppressed without changing navigation state",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "highlight moves to next actual word",
+    "data": {
+      "pass": true,
+      "word": "word",
+      "position": {
+        "pageIndex": 0,
+        "rects": [
+          [
+            114.69999999999999,
+            746.6,
+            146.2,
+            764.5
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "name": "sentence stays fixed while word advances",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "both sets of appearance controls persist independently",
+    "data": {
+      "pass": true,
+      "saved": {
+        "settingsVersion": 3,
+        "enabled": true,
+        "wordEnabled": true,
+        "sentenceEnabled": true,
+        "pointRead": true,
+        "colour": "#00e5ff",
+        "opacity": 45,
+        "outline": 3,
+        "showWord": true,
+        "sentenceColour": "#ff80cc",
+        "sentenceOpacity": 18,
+        "sentenceOutline": 1,
+        "annotationColour": "#ffd400"
+      }
+    }
+  },
+  {
+    "name": "word appearance updates",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "sentence appearance updates independently",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "sentence stays visible when word layer disabled",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "word stays visible when sentence layer disabled",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "master switch restores native highlighting",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "master switch restores both custom layers",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "fill and outlines can both be removed",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "settings show separate word and sentence groups",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "paused boundary ignored",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "both layers move to next spoken sentence",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "old utterance cannot move either highlight back",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "click starts native speech at the selected word",
+    "data": {
+      "pass": true,
+      "spoken": [
+        "word highlights follow the spoken text."
+      ]
+    }
+  },
+  {
+    "name": "remaining sentences remain in the playback queue",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "spoken offsets after clicking map back to the original word",
+    "data": {
+      "pass": true,
+      "position": {
+        "pageIndex": 0,
+        "rects": [
+          [
+            114.69999999999999,
+            746.6,
+            146.2,
+            764.5
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "name": "hover during playback does not restart speech",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "leaving hover restores the spoken word and full sentence",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "point-to-read switch disables hover and click actions",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "dragging across text does not start speech",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "click from stopped playback starts at the exact word",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "Reading Mode shows both layers",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "Reading Mode native highlight suppressed",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "Reading Mode sentence colour adjusts independently",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "Reading Mode hover previews without restarting speech",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "Reading Mode click reads from its selected word",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "default styling leaves the spoken word border off",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "annotation colour defaults to Zotero yellow",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "annotation test begins partway through a sentence",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "annotation colour persists independently of speech colours",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "different sentence is hovered before saving spoken sentence",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "annotation button is available during playback",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "native button creates a permanent full spoken-sentence highlight",
+    "data": {
+      "pass": true,
+      "annotation": {
+        "type": "highlight",
+        "color": "#a020f0",
+        "text": "Clear word highlights follow the spoken text.",
+        "position": {
+          "pageIndex": 0,
+          "rects": [
+            [
+              72,
+              746.6,
+              384.1,
+              764.5
+            ]
+          ]
+        },
+        "sortIndex": "00000|000000|00077",
+        "pageLabel": "1",
+        "comment": "",
+        "tags": [],
+        "id": "NCH8ZU35",
+        "dateCreated": "2026-10-26T08:57:04.912Z",
+        "dateModified": "2026-10-26T08:57:04.912Z",
+        "authorName": ""
+      }
+    }
+  },
+  {
+    "name": "Annotations sidebar opens with saved sentence selected",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "annotation creation preserves playback",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "repeat click does not duplicate the annotation",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "full text and custom colour persist in the Zotero database",
+    "data": {
+      "pass": true,
+      "itemID": 37
+    }
+  },
+  {
+    "name": "changing default annotation colour leaves existing highlights unchanged",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "native undo removes the new highlight",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "sentence can be added again after undo with the new default colour",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "sentence annotation test uses the actual PDF view",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "voice advances to the second sentence before saving",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "annotation keyboard input transaction available",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "keyboard activation saves the paused sentence from PDF view",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "second sentence is a separate saved Zotero annotation",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "read-only document disables annotation button",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "hiding enlarged word keeps annotation action available",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "closing playback disables annotation action",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "word readout cannot cover the settings controls",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "disable removes interface",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "disable removes PDF highlight",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "disable restores PDF native resolver",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "disable removes Reading Mode highlights",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "disable restores paragraph/sentence setting",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "re-enable attaches cleanly",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "re-enable retains independent settings",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "annotation colour survives plugin reload",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "saved annotations survive plugin reload",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "closing and reopening the document retains both permanent highlights",
+    "data": {
+      "pass": true
+    }
+  },
+  {
+    "name": "COMPLETE",
+    "data": {
+      "pass": true
+    }
+  }
+]
