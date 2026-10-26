@@ -4,6 +4,8 @@ A plugin that follows Zotero’s built-in Read Aloud with two independently adju
 
 This build targets Zotero **10.0.6 and later 10.0.x releases**. It is a desktop plugin, not a browser extension or a mobile add-on.
 
+<img width="834" height="901" alt="Screenshot 2026-10-26 201329" src="https://github.com/user-attachments/assets/7f809e23-e496-4f94-8b61-b07c9e3e2ba2" />
+
 ## Install and use
 
 1. Download `word-focus-0.4.1.xpi`. Keep the `.xpi` extension and do not unzip it.
