@@ -19,6 +19,8 @@ To update from an earlier version, install this file over the existing plugin. I
 
 Both highlights are enabled by default. Word Focus supplies the adjustable display while enabled and preserves Zotero’s scrolling and playback controls. Turning off **Enable Word Focus**, or disabling the plugin, restores Zotero’s normal highlighting. You do not need to change the global highlighting preference.
 
+<img width="829" height="818" alt="Screenshot 2026-10-26 201626" src="https://github.com/user-attachments/assets/f4c2156a-71d3-4948-a2f5-eec1eabf6556" />
+
 ## Save the spoken sentence
 
 - **Add annotation**, beside **Wf** in the toolbar, creates a native Zotero highlight across the current spoken sentence and adds its text to the Annotations sidebar. The sidebar opens with the new annotation selected. Playback continues.
