@@ -15,7 +15,7 @@ assert manifest['applications']['zotero']['update_url'].startswith('https://')
 def archive(path, entries):
     with zipfile.ZipFile(path, 'w', compression=zipfile.ZIP_DEFLATED) as package:
         for source, target in entries:
-            info = zipfile.ZipInfo(target, (2026, 10, 26, 0, 0, 0))
+            info = zipfile.ZipInfo(target, (2026, 10, 30, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o100644 << 16
             package.writestr(info, source.read_bytes())
