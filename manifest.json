@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Word Focus for Zotero",
-  "version": "0.4.1",
-  "description": "Follow spoken words, click to read, and save the current sentence as a Zotero annotation in your chosen colour.",
+  "version": "0.6.0",
+  "description": "Follow speech with adjustable word and sentence highlights, click to read, and save sentences from the annotation sidebar or a custom keyboard shortcut.",
   "author": "Word Focus contributors",
   "applications": {
     "zotero": {
