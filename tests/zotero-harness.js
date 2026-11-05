@@ -14,6 +14,14 @@ async function startup() {
     await record(name, {pass:!!condition, ...data});
     if (!condition) throw new Error('FAILED: '+name);
   };
+  const capture=async(name)=>{
+    const main=Zotero.getMainWindow();
+    const canvas=main.document.createElementNS('http://www.w3.org/1999/xhtml','canvas');
+    canvas.width=main.innerWidth;canvas.height=main.innerHeight;
+    canvas.getContext('2d').drawWindow(main,0,0,canvas.width,canvas.height,'rgb(255,255,255)');
+    const binary=main.atob(canvas.toDataURL('image/png').split(',')[1]);
+    await IOUtils.write(ROOT+name,Uint8Array.from(binary,c=>c.charCodeAt(0)));
+  };
   try {
     await record('harness started',{version:Zotero.version});
     await Zotero.initializationPromise;
@@ -21,7 +29,7 @@ async function startup() {
     await record('Zotero ready',{});
     const {AddonManager}=ChromeUtils.importESModule('resource://gre/modules/AddonManager.sys.mjs');
     let addon = await AddonManager.getAddonByID('word-focus@local.invalid');
-    await check('XPI installed and active',addon?.isActive&&addon.version==='0.4.0',{addonVersion:addon?.version});
+    await check('XPI installed and active',addon?.isActive&&addon.version==='0.5.1',{addonVersion:addon?.version});
     const item=await Zotero.Attachments.importFromFile({file:ROOT+'word-focus-fixture.pdf'});
     await record('test PDF imported',{id:item.id});
     const reader=await Zotero.Reader.open(item.id);
@@ -37,11 +45,34 @@ async function startup() {
     await delay(600);
     addon=await AddonManager.getAddonByID('word-focus@local.invalid');
     const migrated=win.document.querySelector('.word-focus-ui').shadowRoot.querySelector('iframe').contentDocument;
-    await check('existing 0.4.0 plugin upgrades in the open reader',addon.version==='0.4.1'&&win.document.querySelectorAll('.word-focus-ui').length===1);
+    await check('existing 0.5.1 plugin upgrades in the open reader',addon.version==='0.6.0'&&win.document.querySelectorAll('.word-focus-ui').length===1);
     await check('legacy word settings survive upgrade and sentence starts enabled',migrated.querySelector('[data-setting="colour"]').value==='#ab1299'&&migrated.querySelector('[data-setting="opacity"]').value==='48'&&migrated.querySelector('[data-setting="outline"]').value==='3'&&migrated.querySelector('[data-setting="sentenceEnabled"]').checked);
-    const wf=win.document.querySelector('.word-focus-button'),ann=win.document.querySelector('.word-focus-annotation-button');
-    await check('Add annotation sits directly to the right of Wf',wf.nextElementSibling===ann&&ann.textContent==='Add annotation'&&ann.getBoundingClientRect().left>=wf.getBoundingClientRect().right);
-    await check('annotation action has moved out of the floating display and settings',!win.document.querySelector('.word-focus-ui').shadowRoot.querySelector('.annotation-frame')&&!migrated.querySelector('.annotation-action'));
+    core.setSidebarView('annotations');core.toggleSidebar(true);await delay(350);
+    await check('annotation action is a native sidebar button with no floating iframe',!!win.document.querySelector('#annotationsView .word-focus-add-annotation')&&!win.document.querySelector('.word-focus-annotation-button')&&!win.document.querySelector('.word-focus-ui').shadowRoot.querySelector('.annotation-frame'));
+    await check('upgrade retains the hidden enlarged-word preference',!migrated.querySelector('[data-setting="showWord"]').checked);
+    const readyUI=win.document.querySelector('.word-focus-ui').shadowRoot;
+    const readyAction=win.document.querySelector('.word-focus-add-annotation');
+    const readyHost=win.document.querySelector('.word-focus-sidebar-action');
+    await check('sidebar action initialises without opening Wf even with no annotations',readyAction.getBoundingClientRect().width>100&&readyHost.classList.contains('at-footer')&&readyUI.querySelector('.panel-frame').hidden);
+    await check('idle action has a readable label and is safely disabled',readyAction.disabled&&readyAction.textContent.includes('Add annotation')&&readyAction.title.includes('Start Read Aloud'));
+    for(const theme of ['light','dark']){
+      core.setColorScheme(theme);await delay(350);
+      const style=win.getComputedStyle(readyAction);
+      await check(theme+' sidebar label contrasts with its background',readyHost.dataset.wordFocusTheme===theme&&style.color===(theme==='dark'?'rgb(195, 203, 214)':'rgb(82, 96, 113)')&&style.backgroundColor===(theme==='dark'?'rgb(52, 61, 73)':'rgb(240, 243, 248)'));
+    }
+    // Start native sentence mapping before opening Wf, with no real audio.
+    const startupManager=core._readAloudManager;
+    startupManager._active=true;startupManager._paused=false;startupManager._segmentGranularity='sentence';startupManager._lang='en';
+    core._state.readAloudState.popupOpen=true;await core._requestReadAloudSegments();
+    startupManager._activeSegment=startupManager.segments[0];core._pushReadAloudToViews();await delay(350);
+    await check('starting playback enables the sidebar action before the first Wf click',!readyAction.disabled&&!readyHost.hidden&&readyUI.querySelector('.panel-frame').hidden);
+    await capture('word-focus-dark-first-play-060.png');
+    startupManager._paused=true;core._pushReadAloudToViews();await delay(300);
+    await check('pausing keeps the annotation action visible and enabled',!readyAction.disabled&&!readyHost.hidden);
+    startupManager._active=false;startupManager._paused=false;startupManager._activeSegment=null;
+    core._state.readAloudState.popupOpen=false;core._pushReadAloudToViews();await delay(300);
+    await check('closing playback keeps the sidebar action present but disabled',readyAction.disabled&&!readyHost.hidden);
+    core.toggleSidebar(false);await delay(300);
     // Genuine Gecko mouse/key dispatch, not value assignment + input events.
     win.document.querySelector('.word-focus-button').click();await delay(100);
     const pwin=Components.utils.waiveXrays(migrated.defaultView);
@@ -50,12 +81,50 @@ async function startup() {
     await check('native keyboard transaction available',tip.beginInputTransactionForTests(pwin));
     const press=(key,code,keyCode)=>{const e=new pwin.KeyboardEvent('keydown',Components.utils.cloneInto({key,code,keyCode},pwin));tip.keydown(e);tip.keyup(e);};
     const mouse=(type,x,y)=>putils.sendMouseEvent(type,x,y,0,1,0);
-    for(const [property,value] of [['opacity',47],['outline',1],['sentenceOpacity',23],['sentenceOutline',0]]){
+    const chord=(targetWin,processor)=>{
+      const event=(key,code,keyCode)=>new targetWin.KeyboardEvent('keydown',Components.utils.cloneInto({key,code,keyCode},targetWin));
+      const ctrl=event('Control','ControlLeft',17),alt=event('Alt','AltLeft',18),key=event('k','KeyK',75);
+      processor.keydown(ctrl);processor.keydown(alt);processor.keydown(key);
+      processor.keyup(key);processor.keyup(alt);processor.keyup(ctrl);
+    };
+    const clickSetting=async node=>{
+      node.scrollIntoView(Components.utils.cloneInto({block:'center'},pwin));await delay(60);
+      const r=node.getBoundingClientRect();mouse('mousedown',r.x+r.width/2,r.y+r.height/2);mouse('mouseup',r.x+r.width/2,r.y+r.height/2);await delay(70);
+    };
+    const shortcutRecord=migrated.querySelector('.shortcut-record'),shortcutClear=migrated.querySelector('.shortcut-clear');
+    await check('shortcut starts unset after upgrade',shortcutRecord.textContent==='Set shortcut'&&shortcutClear.disabled);
+    await clickSetting(shortcutRecord);chord(pwin,tip);await delay(100);
+    await check('recorded shortcut captures real modifier keys and persists',shortcutRecord.textContent==='Ctrl + Alt + K'&&JSON.parse(Services.prefs.getStringPref('extensions.wordfocus.settings')).annotationShortcut.code==='KeyK');
+    await clickSetting(shortcutRecord);press('j','KeyJ',74);await delay(60);
+    await check('plain typing cannot replace the saved shortcut',migrated.querySelector('.shortcut-help').textContent.includes('Use Ctrl')&&JSON.parse(Services.prefs.getStringPref('extensions.wordfocus.settings')).annotationShortcut.code==='KeyK');
+    press('Escape','Escape',27);await delay(60);
+    await check('Escape cancels shortcut recording without closing settings',shortcutRecord.textContent==='Ctrl + Alt + K'&&!readyUI.querySelector('.panel-frame').hidden);
+    await clickSetting(shortcutClear);
+    await check('shortcut can be cleared and persisted',JSON.parse(Services.prefs.getStringPref('extensions.wordfocus.settings')).annotationShortcut===null&&shortcutRecord.textContent==='Set shortcut');
+    await clickSetting(shortcutRecord);chord(pwin,tip);await delay(100);
+    await capture('word-focus-shortcut-settings-060.png');
+    for(const value of ['solid','fade']){
+      const option=migrated.querySelector('[data-setting="underlineMode"][value="'+value+'"]');
+      option.closest('.style-options').scrollIntoView(Components.utils.cloneInto({block:'center'},pwin));await delay(80);
+      const label=option,r=label.getBoundingClientRect();
+      await check('underline '+value+' choice is visible with readable text',r.width>80&&r.height>24&&label.textContent.includes(value==='solid'?'Solid':'Faded edges')&&pwin.getComputedStyle(label).color==='rgb(241, 245, 250)');
+      mouse('mousedown',r.x+r.width/2,r.y+r.height/2);mouse('mouseup',r.x+r.width/2,r.y+r.height/2);await delay(100);
+      await check('underline '+value+' style accepts a real mouse click and persists',option.getAttribute('aria-pressed')==='true'&&JSON.parse(Services.prefs.getStringPref('extensions.wordfocus.settings')).underlineMode===value);
+    }
+    const fadeChoice=migrated.querySelector('[data-setting="underlineMode"][value="fade"]');
+    fadeChoice.focus();press('ArrowRight','ArrowRight',39);await delay(80);
+    await check('underline style buttons support arrow keys',migrated.querySelector('[data-setting="underlineMode"][value="solid"]').getAttribute('aria-pressed')==='true'&&JSON.parse(Services.prefs.getStringPref('extensions.wordfocus.settings')).underlineMode==='solid');
+    press('ArrowLeft','ArrowLeft',37);await delay(80);
+    await check('underline style arrows can return to faded edges',fadeChoice.getAttribute('aria-pressed')==='true');
+    await check('underline choices need no dropdown or platform-specific radio widget',!migrated.querySelector('select')&&migrated.querySelectorAll('.style-choice').length===2);
+    await capture('word-focus-dark-style-options-060.png');
+    core.setColorScheme('light');await delay(350);
+    for(const [property,value] of [['opacity',47],['outline',1],['sentenceOpacity',23],['sentenceOutline',0],['underlineOpacity',55],['underlineThickness',4],['underlineOffset',2]]){
       const range=migrated.querySelector('[data-setting="'+property+'"]');
       const number=migrated.querySelector('[data-number-setting="'+property+'"]');
       range.scrollIntoView(Components.utils.cloneInto({block:'center'},pwin));await delay(60);
       const box=range.getBoundingClientRect(),before=range.value;
-      mouse('mousedown',box.x+box.width*.25,box.y+box.height/2);mouse('mouseup',box.x+box.width*.25,box.y+box.height/2);
+      mouse('mousedown',box.x+box.width*(property==='underlineOffset'?.75:.25),box.y+box.height/2);mouse('mouseup',box.x+box.width*(property==='underlineOffset'?.75:.25),box.y+box.height/2);
       await delay(60);
       await check(property+' responds to a real mouse click',range.value!==before,{before,after:range.value});
       range.focus();const old=+range.value;press('ArrowRight','ArrowRight',39);await delay(40);
@@ -116,7 +185,8 @@ async function startup() {
     manager._controller=fake;
     manager._activeSegment=segment;
     manager._buffering=false;
-    core._pushReadAloudToViews();
+    core._pushReadAloudToViews();await delay(80);
+    await check('waiting for word timing does not reveal the enlarged display',win.document.querySelector('.word-focus-ui').shadowRoot.querySelector('.word-panel').hidden);
     const emit=(index,length)=>{ const init=Components.utils.cloneInto({name:'word',charIndex:index,charLength:length},win);init.utterance=u;u.dispatchEvent(new win.SpeechSynthesisEvent('boundary',init)); };
     emit(0,5);
     await delay(300);
@@ -137,11 +207,13 @@ async function startup() {
     await check('sentence stays fixed while word advances',overlay.shadowRoot.querySelector('.sentence').style.cssText===sentenceBox);
     const ui=win.document.querySelector('.word-focus-ui').shadowRoot;
     const panel=ui.querySelector('iframe').contentDocument;
-    const control=key=>panel.querySelector('[data-setting="'+key+'"]');
+    const control=key=>panel.querySelector('[data-setting="'+key+'"][aria-pressed="true"]')||panel.querySelector('[data-setting="'+key+'"]');
     const change=async(key,value)=>{
-      const input=control(key);
-      if(input.type==='checkbox') input.checked=value; else input.value=value;
-      input.dispatchEvent(new win.Event(input.type==='checkbox'?'change':'input'));
+      const input=key==='underlineMode'?panel.querySelector('[data-setting="underlineMode"][value="'+value+'"]'):control(key);
+      if(key==='underlineMode')input.click();else {
+        if(input.type==='checkbox') input.checked=value;else input.value=value;
+        input.dispatchEvent(new win.Event(input.type==='checkbox'?'change':'input'));
+      }
       await delay(120);
     };
     const layer=kind=>overlay.shadowRoot.querySelector('.'+kind);
@@ -169,18 +241,52 @@ async function startup() {
     await change('sentenceOpacity',0); await change('sentenceOutline',0);
     await check('fill and outlines can both be removed',layer('word').style.borderTopWidth==='0px'&&layer('word').style.boxShadow===''&&layer('word').style.backgroundColor==='rgba(0, 229, 255, 0)'&&layer('sentence').style.borderTopWidth==='0px');
     for(const [key,value] of Object.entries({colour:'#ffe600',opacity:32,outline:0,sentenceColour:'#66b7ff',sentenceOpacity:20,sentenceOutline:0})) await change(key,value);
-    const capture=async(name)=>{
-      const main=Zotero.getMainWindow();
-      const canvas=main.document.createElementNS('http://www.w3.org/1999/xhtml','canvas');
-      canvas.width=main.innerWidth;canvas.height=main.innerHeight;
-      canvas.getContext('2d').drawWindow(main,0,0,canvas.width,canvas.height,'rgb(255,255,255)');
-      const binary=main.atob(canvas.toDataURL('image/png').split(',')[1]);
-      await IOUtils.write(ROOT+name,Uint8Array.from(binary,c=>c.charCodeAt(0)));
-    };
-    await capture('word-focus-live-041.png');
+    await check('enlarged word stays hidden during playback by default',!control('showWord').checked&&ui.querySelector('.word-panel').hidden);
+    await check('sidebar action is retained while its sidebar is closed and no bottom control is shown',readyHost.contains(readyAction)&&ui.querySelector('.readout').hidden&&!ui.querySelector('.annotation-frame'));
+    await check('underline starts switched off',!control('underlineEnabled').checked&&!layer('underline'));
+    await change('underlineOpacity',90);await change('underlineThickness',3);await change('underlineOffset',1);
+    await change('underlineEnabled',true);
+    await check('enabled underline spans the current sentence',!!layer('underline')&&Math.abs(parseFloat(layer('underline').style.width)-win.WordFocusCore.viewRects(view,segment.sourcePosition,false)[0].width)<.1&&layer('underline').style.height==='3px');
+    const fullRect=win.WordFocusCore.viewRects(view,segment.sourcePosition)[0];
+    await check('sentence highlight ends exactly at its text bounds',Math.abs(parseFloat(layer('sentence').style.left)-fullRect.left)<.1&&Math.abs(parseFloat(layer('sentence').style.width)-fullRect.width)<.1&&Math.abs(parseFloat(layer('sentence').style.height)-fullRect.height)<.1);
+    const firstGradient=layer('underline').style.backgroundImage;
+    emit(11,10);await delay(150);
+    await check('underline peak moves with actual spoken-word events',layer('underline').style.backgroundImage!==firstGradient&&layer('underline').style.backgroundImage.includes('linear-gradient'));
+    await change('underlineColour','#e85d31');await change('underlineOpacity',45);await change('underlineThickness',4);await change('underlineOffset',2);
+    await check('underline colour opacity thickness and gap update independently',layer('underline').style.backgroundImage.includes('232, 93, 49')&&layer('underline').style.backgroundImage.includes('0.45')&&layer('underline').style.height==='4px'&&Math.abs(parseFloat(layer('underline').style.top)-fullRect.top-fullRect.height-2)<.1);
+    await change('underlineMode','solid');
+    await check('solid underline has uniform configurable transparency',layer('underline').style.backgroundImage==='none'&&layer('underline').style.backgroundColor==='rgba(232, 93, 49, 0.45)');
+    await change('underlineOpacity',0);await check('zero underline opacity removes the line',!layer('underline'));
+    await change('underlineOpacity',90);await change('underlineMode','fade');await change('underlineColour','#2563eb');await change('underlineThickness',3);await change('underlineOffset',1);
+    await change('wordEnabled',false);await change('sentenceEnabled',false);
+    await check('underline works independently of both fill highlights',!!layer('underline')&&!layer('word')&&!layer('sentence'));
+    await change('enabled',false);await check('master switch removes the underline',!layer('underline'));
+    await change('enabled',true);await change('wordEnabled',true);await change('sentenceEnabled',true);
+    const speakingLineTop=layer('underline').style.top;
+    move(win.WordFocusCore.viewRects(view,core._sdt.mapper.textNodeSpansToSourcePosition(core._readAloudSegments.getWordTextSpans(segments[1],0,3)))[0]);await delay(100);
+    await check('hover over another sentence does not redirect spoken underline',hoverOverlay().dataset.mode==='hover'&&layer('underline').style.top===speakingLineTop&&parseFloat(layer('sentence').style.top)>parseFloat(speakingLineTop));
+    pdfUtils.sendMouseEvent('mousemove',400,400,0,0,0,false,0,pdfWin.MouseEvent.MOZ_SOURCE_MOUSE,true,false,0);await delay(100);
+    const wrapped=segments.find(x=>x.text.startsWith('A wrapped sentence'));
+    await check('fixture supplies a real sentence across two tightly spaced PDF lines',!!wrapped&&win.WordFocusCore.viewRects(view,wrapped.sourcePosition,false).length>=2,{text:wrapped?.text});
+    const wrappedUtterance=new win.SpeechSynthesisUtterance(wrapped.text);
+    fake._currentUtterance=wrappedUtterance;fake._currentSegment=wrapped;manager._activeSegment=wrapped;core._pushReadAloudToViews();
+    const wrappedInit=Components.utils.cloneInto({name:'word',charIndex:wrapped.text.indexOf('spoken'),charLength:6},win);wrappedInit.utterance=wrappedUtterance;
+    wrappedUtterance.dispatchEvent(new win.SpeechSynthesisEvent('boundary',wrappedInit));await delay(200);
+    const sentenceRows=Array.from(overlay.shadowRoot.querySelectorAll('.sentence')).map(n=>n.getBoundingClientRect()).sort((a,b)=>a.top-b.top);
+    await check('wrapped sentence highlight rows do not overlap vertically',sentenceRows.length===2&&sentenceRows[0].bottom<sentenceRows[1].top,{rects:sentenceRows.map(r=>r.toJSON())});
+    const spokenBox=layer('word').getBoundingClientRect();
+    await check('spoken word stays inside its sentence row without spilling into the row above',spokenBox.top>=sentenceRows[1].top-.1&&spokenBox.bottom<=sentenceRows[1].bottom+.1);
+    const strokes=Array.from(overlay.shadowRoot.querySelectorAll('.underline'));
+    await check('wrapped sentence receives a continuous fade across both lines',strokes.length===2&&strokes.every(n=>n.style.backgroundImage.includes('linear-gradient'))&&strokes[0].style.backgroundImage!==strokes[1].style.backgroundImage);
+    await capture('word-focus-wrapped-060.png');
+    fake._currentUtterance=u;fake._currentSegment=segment;manager._activeSegment=segment;core._pushReadAloudToViews();emit(6,4);await delay(100);
+    await change('showWord',true);await check('enlarged word can still be enabled explicitly',!ui.querySelector('.word-panel').hidden);
+    await change('showWord',false);await check('turning the word display off keeps the sidebar action',ui.querySelector('.word-panel').hidden&&!readyHost.hidden);
+
+    await capture('word-focus-live-060.png');
     win.document.querySelector('.word-focus-button').click();await delay(100);
-    await check('settings show separate word and sentence groups',panel.querySelectorAll('fieldset').length===3&&panel.querySelectorAll('input[type=number]').length===4);
-    await capture('word-focus-settings-041.png');
+    await check('settings show separate word and sentence groups',panel.querySelectorAll('fieldset').length===4&&panel.querySelectorAll('input[type=number]').length===7);
+    await capture('word-focus-settings-060.png');
     win.document.querySelector('.word-focus-button').click();
     manager._paused=true;
     const before=JSON.stringify(s.activeWordSourcePosition);
@@ -222,7 +328,7 @@ async function startup() {
     move(clearRect);await delay(100);
     await check('hover during playback does not restart speech',win.wordFocusSpoken.length===countBeforeHover);
     pdfUtils.sendMouseEvent('mousemove',400,400,0,0,0,false,0,pdfWin.MouseEvent.MOZ_SOURCE_MOUSE,true,false,0);await delay(80);
-    await check('leaving hover restores the spoken word and full sentence',layer('word')&&parseFloat(layer('sentence').style.width)>400&&hoverOverlay().dataset.mode==='speech');
+    await check('leaving hover restores the spoken word and full sentence',layer('word')&&parseFloat(layer('sentence').style.width)>parseFloat(layer('word').style.width)*3&&hoverOverlay().dataset.mode==='speech');
     await change('pointRead',false);
     move(clearRect);await delay(100);clickWord(clearRect);await delay(300);
     await check('point-to-read switch disables hover and click actions',!pdfWin.document.documentElement.hasAttribute('data-word-focus-pointing')&&win.wordFocusSpoken.length===countBeforeHover);
@@ -286,10 +392,10 @@ async function startup() {
     const hoverSecond=win.WordFocusCore.viewRects(domView,nextSegment.sourcePosition)[0];
     domUtils.sendMouseEvent('mousemove',hoverSecond.left+8,hoverSecond.top+hoverSecond.height/2,0,0,0,false,0,domWin.MouseEvent.MOZ_SOURCE_MOUSE,true,false,0);await delay(120);
     await check('different sentence is hovered before saving spoken sentence',domOverlay.dataset.mode==='hover');
-    const actionDoc=win.document;
-    const actionWin=Components.utils.waiveXrays(actionDoc.defaultView);
-    const annotationButton=actionDoc.querySelector('.word-focus-annotation-button');
-    await check('annotation button is available during playback',!annotationButton.disabled&&annotationButton.textContent==='Add annotation');
+    core.setSidebarView('annotations');core.toggleSidebar(true);await delay(350);
+    const actionDoc=win.document,actionWin=win;
+    const annotationButton=win.document.querySelector('.word-focus-add-annotation');
+    await check('sidebar annotation button is available during playback',!annotationButton.disabled&&annotationButton.getAttribute('aria-label')==='Add annotation');
     const clickAnnotation=()=>{const r=annotationButton.getBoundingClientRect(),utils=Components.utils.unwaiveXrays(win).windowUtils;utils.sendMouseEvent('mousedown',r.x+r.width/2,r.y+r.height/2,0,1,0);utils.sendMouseEvent('mouseup',r.x+r.width/2,r.y+r.height/2,0,1,0);};
     const speechCount=win.wordFocusSpoken.length;
     const annManager=core._annotationManager;
@@ -299,18 +405,20 @@ async function startup() {
     await check('Annotations sidebar opens with saved sentence selected',core._state.sidebarOpen&&core._state.sidebarView==='annotations'&&core._state.selectedAnnotationIDs.includes(firstAnnotation.id)&&!!win.document.querySelector('[data-sidebar-annotation-id="'+firstAnnotation.id+'"]'));
     await check('annotation creation preserves playback',manager.active&&!manager.paused&&win.wordFocusSpoken.length===speechCount);
     clickAnnotation();await delay(100);
-    await check('repeat click does not duplicate the annotation',annManager._annotations.length===1&&actionDoc.querySelector('.word-focus-annotation-status').textContent.includes('already'));
+    await check('repeat click does not duplicate the annotation',annManager._annotations.length===1&&win.document.querySelector('.word-focus-annotation-message').textContent.includes('already'));
     let savedAnnotation;
     for(let i=0;i<50;i++){savedAnnotation=Zotero.Items.getByLibraryAndKey(item.libraryID,firstAnnotation.id);if(savedAnnotation)break;await delay(100);}
     await check('full text and custom colour persist in the Zotero database',savedAnnotation?.parentID===item.id&&savedAnnotation.annotationType==='highlight'&&savedAnnotation.annotationText===segment.text&&savedAnnotation.annotationColor==='#a020f0',{itemID:savedAnnotation?.id});
-    await capture('word-focus-annotation-041.png');
+    await capture('word-focus-annotation-060.png');
     await change('annotationColour','#34c7a0');
     await check('changing default annotation colour leaves existing highlights unchanged',firstAnnotation.color==='#a020f0'&&savedAnnotation.annotationColor==='#a020f0');
     annManager.undo();await delay(1200);
     await check('native undo removes the new highlight',!annManager._getAnnotationByID(firstAnnotation.id));
-    clickAnnotation();await delay(1200);
+    const domTIP=Cc['@mozilla.org/text-input-processor;1'].createInstance(Ci.nsITextInputProcessor);
+    await check('Reading Mode shortcut keyboard transaction available',domTIP.beginInputTransactionForTests(domWin));
+    domView.focus();chord(domWin,domTIP);await delay(1200);
     const replacement=annManager._annotations[0];
-    await check('sentence can be added again after undo with the new default colour',replacement?.id!==firstAnnotation.id&&replacement?.text===segment.text&&replacement?.color==='#34c7a0');
+    await check('Reading Mode shortcut re-adds the full sentence after undo with the new colour',replacement?.id!==firstAnnotation.id&&replacement?.text===segment.text&&replacement?.color==='#34c7a0');
     await core._setReadingMode(true,false);await delay(300);
     await check('sentence annotation test uses the actual PDF view',!core._state.primaryReadingModeEnabled&&!core._primarySDTView);
     manager._activeSegment=null;manager.setSegments(manager.segments,1,null);await delay(180);
@@ -319,7 +427,7 @@ async function startup() {
     const secondBoundary=Components.utils.cloneInto({name:'word',charIndex:0,charLength:3},win);secondBoundary.utterance=secondUtterance;
     secondUtterance.dispatchEvent(new win.SpeechSynthesisEvent('boundary',secondBoundary));await delay(100);
     manager._paused=true;core._pushReadAloudToViews();await delay(80);
-    // Keyboard activation exercises the native toolbar button.
+    // Native Enter activation exercises the ordinary sidebar button.
     annotationButton.focus();
     const actionTIP=Cc['@mozilla.org/text-input-processor;1'].createInstance(Ci.nsITextInputProcessor);
     await check('annotation keyboard input transaction available',actionTIP.beginInputTransactionForTests(actionWin));
@@ -330,15 +438,40 @@ async function startup() {
     await check('keyboard activation saves the paused sentence from PDF view',secondAnnotation?.color==='#34c7a0'&&annManager._annotations.length===2&&manager.paused);
     const secondSaved=secondAnnotation&&Zotero.Items.getByLibraryAndKey(item.libraryID,secondAnnotation.id);
     await check('second sentence is a separate saved Zotero annotation',secondSaved?.annotationText===nextSegment.text&&secondSaved.annotationColor==='#34c7a0');
-    await capture('word-focus-permanent-pdf-041.png');
+    annManager.updateAnnotations(Components.utils.cloneInto([{id:secondAnnotation.id,color:'#ffd400'}],win));await delay(400);
+    await check('button sits beside the native colour filters when they appear',annotationButton.parentElement.parentElement.matches('#selector .colors')&&win.document.querySelectorAll('.word-focus-add-annotation').length===1);
+    core.setColorScheme('dark');await delay(350);await capture('word-focus-sidebar-colours-dark-060.png');
+    core.setColorScheme('light');await delay(350);await capture('word-focus-sidebar-colours-light-060.png');
+    annManager.updateAnnotations(Components.utils.cloneInto([{id:secondAnnotation.id,color:'#34c7a0'}],win));await delay(400);
+    await check('button survives the native colour-filter row being removed',annotationButton.isConnected&&annotationButton.parentElement.classList.contains('at-footer'));
+    core.setSidebarView('thumbnails');await delay(100);core.setSidebarView('annotations');await delay(300);
+    await check('switching sidebar tabs preserves one working action',annotationButton.getBoundingClientRect().width>0&&win.document.querySelectorAll('.word-focus-add-annotation').length===1);
+    const wrappedIndex=manager.segments.findIndex(x=>x.text.startsWith('A wrapped sentence'));
+    manager._activeSegment=null;manager._paused=false;manager.setSegments(manager.segments,wrappedIndex,null);await delay(150);
+    manager._paused=true;core._pushReadAloudToViews();await delay(120);
+    const comment=win.document.querySelector('[contenteditable="true"]');
+    await check('native annotation comment is available for shortcut typing guard',!!comment);
+    actionTIP.beginInputTransactionForTests(win);comment.focus();chord(win,actionTIP);await delay(150);
+    await check('shortcut does not annotate while editing a comment',annManager._annotations.length===2);
+    const pdfTIP=Cc['@mozilla.org/text-input-processor;1'].createInstance(Ci.nsITextInputProcessor);
+    await check('PDF shortcut keyboard transaction available',pdfTIP.beginInputTransactionForTests(pdfWin));
+    core.toggleSidebar(false);core._primaryView.focus();chord(pdfWin,pdfTIP);await delay(1200);
+    const shortcutAnnotation=annManager._annotations.find(a=>a.text.startsWith('A wrapped sentence'));
+    await check('PDF shortcut saves the paused sentence with the sidebar closed',!!shortcutAnnotation&&annManager._annotations.length===3&&core._state.sidebarOpen&&manager.paused);
+    annManager.undo();await delay(1200);
+    actionTIP.beginInputTransactionForTests(win);annotationButton.focus();chord(win,actionTIP);await delay(1200);
+    await check('shortcut also works from the native sidebar',annManager._annotations.length===3&&annManager._annotations.some(a=>a.text.startsWith('A wrapped sentence')));
+    annManager.undo();await delay(1200);
+    manager._activeSegment=null;manager._paused=false;manager.setSegments(manager.segments,1,null);await delay(120);manager._paused=true;core._pushReadAloudToViews();await delay(100);
+    await capture('word-focus-permanent-pdf-060.png');
     core.setReadOnly(true);await delay(350);
-    await check('read-only document disables annotation button',annotationButton.disabled&&actionDoc.querySelector('.word-focus-annotation-status').textContent.includes('read-only'));
+    await check('read-only document disables annotation button',annotationButton.disabled&&win.document.querySelector('.word-focus-annotation-message').textContent.includes('read-only'));
     core.setReadOnly(false);await delay(300);
     await change('showWord',false);
-    await check('hiding enlarged word keeps annotation action available',ui.querySelector('.readout').hidden&&!annotationButton.disabled&&annotationButton.getBoundingClientRect().width>0);
+    await check('hiding enlarged word keeps annotation action available',!readyHost.hidden&&ui.querySelector('.word-panel').hidden&&!annotationButton.disabled&&annotationButton.getBoundingClientRect().width>0);
     await change('showWord',true);
     core._updateReadAloudUIState(Components.utils.cloneInto({popupOpen:false},win));await delay(100);
-    await check('closing playback disables annotation action',annotationButton.disabled);
+    await check('closing playback disables annotation action without removing it',annotationButton.disabled&&!readyHost.hidden);
     core._updateReadAloudUIState(Components.utils.cloneInto({popupOpen:true},win));await delay(100);
     manager._paused=false;core._pushReadAloudToViews();
     await core._setReadingMode(true,true);await delay(250);domView=core._primarySDTView;
@@ -346,25 +479,28 @@ async function startup() {
     const mainEnd=Zotero.getMainWindow(),canvasEnd=mainEnd.document.createElementNS('http://www.w3.org/1999/xhtml','canvas');
     canvasEnd.width=mainEnd.innerWidth;canvasEnd.height=mainEnd.innerHeight;
     win.document.querySelector('.word-focus-button').click();await delay(100);
-    await check('word readout cannot cover the settings controls',win.document.querySelector('.word-focus-ui').shadowRoot.querySelector('.readout').hidden);
+    await check('word readout cannot cover settings and sidebar action stays mounted',ui.querySelector('.word-panel').hidden&&!!win.document.querySelector('#annotationsView .word-focus-add-annotation'));
     panel.querySelector('.panel').scrollTop=0;await delay(100);
     canvasEnd.getContext('2d').drawWindow(mainEnd,0,0,canvasEnd.width,canvasEnd.height,'rgb(255,255,255)');
-    const pngEnd=mainEnd.atob(canvasEnd.toDataURL('image/png').split(',')[1]);await IOUtils.write(ROOT+'word-focus-final-settings-041.png',Uint8Array.from(pngEnd,c=>c.charCodeAt(0)));
+    const pngEnd=mainEnd.atob(canvasEnd.toDataURL('image/png').split(',')[1]);await IOUtils.write(ROOT+'word-focus-final-settings-060.png',Uint8Array.from(pngEnd,c=>c.charCodeAt(0)));
     win.document.querySelector('.word-focus-button').click();
 
     await addon.disable();
     await delay(200);
-    await check('disable removes interface',!win.document.querySelector('.word-focus-ui')&&!win.document.querySelector('.word-focus-toolbar-controls')&&!win.document.querySelector('.word-focus-annotation-button'));
+    await check('disable removes interface',!win.document.querySelector('.word-focus-ui')&&!win.document.querySelector('.word-focus-sidebar-action')&&!win.document.querySelector('.word-focus-add-annotation'));
     await check('disable removes PDF highlight',!view._iframeWindow.document.querySelector('.word-focus-overlay'));
     await check('disable restores PDF native resolver',!!view._resolveReadAloudPrimaryPosition(core._composeReadAloudStateSnapshot(),nextSegment.sourcePosition));
     await check('disable removes Reading Mode highlights',!domView._iframeWindow.document.querySelector('.word-focus-overlay'));
     await check('disable restores paragraph/sentence setting',core._composeReadAloudStateSnapshot().highlightGranularity===core._state.readAloudState.highlightGranularity);
     await addon.enable();
     await delay(400);
-    await check('re-enable attaches cleanly',win.document.querySelectorAll('.word-focus-ui').length===1&&win.document.querySelectorAll('.word-focus-annotation-button').length===1&&win.document.querySelector('.word-focus-button').nextElementSibling===win.document.querySelector('.word-focus-annotation-button'));
+    await check('re-enable attaches cleanly',win.document.querySelectorAll('.word-focus-ui').length===1&&win.document.querySelectorAll('#annotationsView .word-focus-add-annotation').length===1);
     const newUI=win.document.querySelector('.word-focus-ui').shadowRoot.querySelector('iframe').contentDocument;
     await check('re-enable retains independent settings',newUI.querySelector('[data-setting="sentenceColour"]').value==='#dd44aa'&&newUI.querySelector('[data-setting="colour"]').value==='#ffe600');
+    await check('explicit enlarged-word opt-in survives plugin reload',newUI.querySelector('[data-setting="showWord"]').checked);
+    await check('underline preferences survive plugin reload',newUI.querySelector('[data-setting="underlineEnabled"]').checked&&newUI.querySelector('[data-setting="underlineMode"][aria-pressed="true"]').value==='fade');
     await check('annotation colour survives plugin reload',newUI.querySelector('[data-setting="annotationColour"]').value==='#34c7a0');
+    await check('recorded shortcut survives plugin reload',newUI.querySelector('.shortcut-record').textContent==='Ctrl + Alt + K'&&win.document.querySelector('.word-focus-add-annotation').getAttribute('aria-keyshortcuts')==='Control+Alt+K');
     await check('saved annotations survive plugin reload',core._annotationManager._annotations.length===2&&item.getAnnotations().length===2);
     reader.close();await delay(300);
     const reopened=await Zotero.Reader.open(item.id);await reopened._initPromise;await reopened._internalReader._primaryView.initializedPromise;
